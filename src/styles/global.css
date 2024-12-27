@@ -1,0 +1,62 @@
+:root {
+  --color-primary: #42b983;
+  --color-primary-rgb: 66, 185, 131;
+  --color-secondary: #3aa876;
+  --color-background: #ffffff;
+  --color-surface: #f8f9fa;
+  --color-surface-rgb: 248, 249, 250;
+  --color-text: #2c3e50;
+  --color-border: #eaeaea;
+}
+
+[data-theme="dark"] {
+  --color-primary: #42b983;
+  --color-primary-rgb: 66, 185, 131;
+  --color-secondary: #3aa876;
+  --color-background: #1a1a1a;
+  --color-surface: #2c2c2c;
+  --color-surface-rgb: 44, 44, 44;
+  --color-text: #ffffff;
+  --color-border: #404040;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-text);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* 全局文本颜色 */
+h1, h2, h3, h4, h5, h6, p {
+  color: var(--color-text);
+}
+
+/* 全局链接颜色 */
+a {
+  color: var(--color-primary);
+}
+
+/* 全局过渡效果 */
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* 全局滚动条样式 */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-primary);
+  border-radius: 4px;
+}
+
+/* 选中文本的颜色 */
+::selection {
+  background: var(--color-primary);
+  color: white;
+} 
