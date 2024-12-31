@@ -61,6 +61,42 @@
           </select>
         </div>
 
+        <div class="form-group">
+          <div class="cover-upload">
+            <div 
+              class="upload-area"
+              @click="triggerFileInput"
+              @drop.prevent="handleDrop"
+              @dragover.prevent
+              @dragenter.prevent
+            >
+              <input
+                type="file"
+                ref="fileInput"
+                accept="image/*"
+                style="display: none"
+                @change="handleFileChange"
+              >
+              <template v-if="!article.cover">
+                <i class="upload-icon">📸</i>
+                <p>点击或拖拽上传封面图</p>
+              </template>
+              <img 
+                v-else 
+                :src="article.cover" 
+                alt="封面预览"
+                class="cover-preview"
+              >
+            </div>
+            <div v-if="uploadProgress > 0 && uploadProgress < 100" class="progress-bar">
+              <div 
+                class="progress" 
+                :style="{ width: uploadProgress + '%' }"
+              ></div>
+            </div>
+          </div>
+        </div>
+
         <div class="form-group editor-container">
           <mavon-editor
             v-model="article.content"
@@ -74,6 +110,9 @@
       </template>
 
       <div v-else class="preview-content">
+        <div class="preview-cover" v-if="article.cover">
+          <img :src="article.cover" :alt="article.title">
+        </div>
         <h1>{{ article.title }}</h1>
         <div class="article-meta">
           <div class="tags-list preview-tags">
@@ -111,6 +150,10 @@ const isPreview = ref(false)
 const publishing = ref(false)
 const tagInput = ref('')
 
+// 添加上传相关的状态
+const fileInput = ref<HTMLInputElement | null>(null)
+const uploadProgress = ref(0)
+
 // mavon-editor 工具栏配置
 const toolbars = {
   bold: true, // 粗体
@@ -128,7 +171,7 @@ const toolbars = {
   imagelink: true, // 图片链接
   code: true, // code
   table: true, // 表格
-  fullscreen: true, // 全��编辑
+  fullscreen: true, // 全屏编辑
   readmodel: true, // 沉浸式阅读
   htmlcode: true, // 展示html源码
   help: true, // 帮助
@@ -187,6 +230,9 @@ onMounted(async () => {
 
 const togglePreview = () => {
   isPreview.value = !isPreview.value
+  if (isPreview.value) {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 }
 
 const addTag = () => {
@@ -232,6 +278,71 @@ const handleLogout = () => {
 
 const handleEditorChange = (value: string, render: string) => {
   article.value.content = value
+}
+
+// 触发文件选择
+const triggerFileInput = () => {
+  fileInput.value?.click()
+}
+
+// 处理文件选择
+const handleFileChange = (event: Event) => {
+  const input = event.target as HTMLInputElement
+  if (input.files?.length) {
+    uploadFile(input.files[0])
+  }
+}
+
+// 处理拖拽上传
+const handleDrop = (event: DragEvent) => {
+  const file = event.dataTransfer?.files[0]
+  if (file) {
+    uploadFile(file)
+  }
+}
+
+// 上传文件
+const uploadFile = async (file: File) => {
+  if (!file.type.startsWith('image/')) {
+    alert('请上传图片文件')
+    return
+  }
+
+  // 模拟上传进度
+  uploadProgress.value = 0
+  const simulateProgress = setInterval(() => {
+    if (uploadProgress.value < 90) {
+      uploadProgress.value += 10
+    }
+  }, 200)
+
+  try {
+    // 使用 FileReader 读取文件，模拟上传
+    const reader = new FileReader()
+    
+    const result = await new Promise((resolve, reject) => {
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = () => reject(new Error('文件读取失败'))
+      reader.readAsDataURL(file)
+    })
+
+    // 清除进度条模拟
+    clearInterval(simulateProgress)
+    uploadProgress.value = 100
+
+    // 设置预览图
+    article.value.cover = result as string
+
+    // 3秒后隐藏进度条
+    setTimeout(() => {
+      uploadProgress.value = 0
+    }, 3000)
+
+  } catch (error) {
+    clearInterval(simulateProgress)
+    alert('上传失败，请重试')
+    uploadProgress.value = 0
+  }
 }
 </script>
 
@@ -789,7 +900,7 @@ button {
   color: var(--color-text) !important;
 }
 
-/* 编辑器输��区域的滚动条适配 */
+/* 编辑器输入区域的滚动条适配 */
 .editor-container :deep(.v-note-panel .v-note-edit.divarea-wrapper .content-input-wrapper::-webkit-scrollbar) {
   width: 6px;
   height: 6px;
@@ -948,5 +1059,89 @@ button {
   background-color: var(--color-surface) !important;
   border: 1px solid var(--color-border) !important;
   color: var(--color-text) !important;
+}
+
+/* 添加封面上传相关样式 */
+.cover-upload {
+  margin-bottom: 1.5rem;
+}
+
+.upload-area {
+  border: 2px dashed var(--color-border);
+  border-radius: 8px;
+  padding: 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: var(--color-surface);
+}
+
+.upload-area:hover {
+  border-color: var(--color-primary);
+  background: rgba(var(--color-primary-rgb), 0.05);
+}
+
+.upload-icon {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}
+
+.cover-preview {
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: 8px;
+}
+
+.progress-bar {
+  margin-top: 1rem;
+  height: 4px;
+  background: var(--color-border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress {
+  height: 100%;
+  background: var(--color-primary);
+  transition: width 0.3s ease;
+}
+
+/* 适配暗色模式 */
+@media (prefers-color-scheme: dark) {
+  .upload-area {
+    background: rgba(var(--color-surface-rgb), 0.5);
+  }
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .upload-area {
+    padding: 1.5rem;
+  }
+  
+  .cover-preview {
+    max-height: 200px;
+  }
+}
+
+/* 添加预览封面样式 */
+.preview-cover {
+  margin: -2rem -2rem 2rem;
+  height: 400px;
+  overflow: hidden;
+  position: relative;
+}
+
+.preview-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+@media (max-width: 768px) {
+  .preview-cover {
+    margin: -1rem -1rem 1.5rem;
+    height: 200px;
+  }
 }
 </style> 

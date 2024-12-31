@@ -26,6 +26,7 @@
 
       <!-- 瀑布流图集 -->
       <vue-masonry-wall 
+        v-if="filteredGallery.length"
         :items="filteredGallery" 
         :ssr="false"
         :padding="20"
@@ -33,7 +34,7 @@
         :class="{ 'fade-in': isContentVisible }"
         style="animation-delay: 0.2s"
       >
-        <template #default="{ item }">
+        <template v-slot="{ item }">
           <div class="gallery-item" @click="openGallery(item)">
             <div class="image-wrapper">
               <img 
@@ -300,7 +301,7 @@ const gallery = ref<GalleryItem[]>([
   {
     id: 17,
     title: '花卉摄影',
-    description: '记录花卉的绚丽色��，展现大自然的精致之美...',
+    description: '记录花卉的绚丽色彩，展现大自然的精致之美...',
     cover: 'https://picsum.photos/seed/gallery17/400/500',
     images: ['https://picsum.photos/seed/gallery17-1/1200/800'],
     date: '2023-12-16',

@@ -6,6 +6,7 @@ import { ObserveVisibility } from 'vue-observe-visibility';
 import mavonEditor from 'mavon-editor'
 import '@/styles/global.css'
 import 'mavon-editor/dist/css/index.css'
+import './assets/styles/reset.css'
 
 const app = createApp(App)
 
