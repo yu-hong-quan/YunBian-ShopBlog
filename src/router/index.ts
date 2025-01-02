@@ -37,8 +37,23 @@ const router = createRouter({
       name: 'Editor',
       component: () => import('@/views/admin/Editor.vue'),
       meta: { requiresAuth: true }
+    },
+    {
+      path: '/article/:id',
+      name: 'ArticleDetail',
+      component: () => import('@/views/ArticleDetail.vue'),
+      props: true
     }
-  ]
+  ],
+  scrollBehavior(to, from, savedPosition) {
+    if (savedPosition) {
+      return savedPosition
+    }
+    return { 
+      top: 0,
+      behavior: 'smooth'
+    }
+  }
 })
 
 // 路由守卫
@@ -48,6 +63,10 @@ router.beforeEach((to, from, next) => {
   if (to.meta.requiresAuth && !checkAuth()) {
     next('/admin/login')
   } else {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    })
     next()
   }
 })

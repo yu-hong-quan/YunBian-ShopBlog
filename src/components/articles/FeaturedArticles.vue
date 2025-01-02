@@ -1,56 +1,80 @@
 <template>
-  <div 
-    class="featured-section" 
-    v-if="!hideSection"
-    v-observe-visibility="onFeaturedVisible"
-  >
-    <h2 :class="{ 'fade-in': isFeaturedVisible }">热门推荐</h2>
-    <div class="featured-grid" :class="{ 'fade-in': isFeaturedVisible }">
-      <article 
-        v-for="article in articles" 
-        :key="article.id" 
-        class="featured-card"
-        @click="navigateToArticle(article.id, article.category)"
-        style="cursor: pointer;"
+  <section v-if="!hideSection" class="featured-section">
+    <div class="featured-content">
+      <div 
+        v-for="(article, index) in articles" 
+        :key="article.id"
+        class="featured-item"
+        :style="{ '--delay': `${index * 0.1}s` }"
+        @click="navigateToArticle(article.id)"
       >
-        <div class="featured-image" :style="{ backgroundImage: `url(${article.cover})` }"></div>
-        <div class="featured-content">
-          <span class="featured-tag">{{ article.category }}</span>
-          <h3>{{ article.title }}</h3>
-          <p>{{ article.preview }}</p>
-          <div class="article-meta">
-            <span>{{ article.date }}</span>
-            <span>{{ article.readTime }}分钟阅读</span>
-          </div>
+        <div class="featured-image">
+          <img v-lazy="article.cover" :alt="article.title">
         </div>
-      </article>
+        <div class="featured-info">
+          <div class="article-meta">
+            <span class="category">{{ article.category }}</span>
+            <span class="read-time">{{ article.readTime }}分钟阅读</span>
+          </div>
+          <h3 class="article-title">{{ article.title }}</h3>
+          <p class="article-preview">{{ article.preview }}</p>
+          <div class="article-date">{{ article.date }}</div>
+        </div>
+      </div>
     </div>
-  </div>
+
+    <!-- 移动端轮播指示器 -->
+    <div class="mobile-indicators">
+      <div 
+        v-for="(_, index) in articles" 
+        :key="index"
+        :class="['indicator', { active: currentIndex === index }]"
+        @click="setCurrentIndex(index)"
+      ></div>
+    </div>
+  </section>
 </template>
 
 <script lang="ts" setup>
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 
-defineProps<{
-  articles: Array<any>
+const props = defineProps<{
+  articles: any[]
   hideSection: boolean
 }>()
 
 const router = useRouter()
+const currentIndex = ref(0)
+let autoplayInterval: number | null = null
 
-const isFeaturedVisible = ref(false)
-const onFeaturedVisible = (visible: boolean) => {
-  if (visible) isFeaturedVisible.value = true
+const navigateToArticle = (id: number) => {
+  router.push(`/article/${id}`)
 }
 
-const navigateToArticle = (id: number, category: string) => {
-  router.push({
-    name: 'ArticleDetail',
-    params: { id },
-    query: { category }
-  })
+const setCurrentIndex = (index: number) => {
+  currentIndex.value = index
 }
+
+const startAutoplay = () => {
+  autoplayInterval = window.setInterval(() => {
+    currentIndex.value = (currentIndex.value + 1) % props.articles.length
+  }, 5000)
+}
+
+const stopAutoplay = () => {
+  if (autoplayInterval) {
+    clearInterval(autoplayInterval)
+  }
+}
+
+onMounted(() => {
+  startAutoplay()
+})
+
+onUnmounted(() => {
+  stopAutoplay()
+})
 </script>
 
 <style scoped>
@@ -58,92 +82,185 @@ const navigateToArticle = (id: number, category: string) => {
   margin-bottom: 3rem;
 }
 
-.featured-section h2 {
-  margin-bottom: 2rem;
+.section-title {
+  font-size: 1.5rem;
+  margin-bottom: 1.5rem;
   color: var(--color-text);
-}
-
-.featured-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 2rem;
-}
-
-.featured-card {
-  background: var(--color-surface);
-  border-radius: 12px;
-  overflow: hidden;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  cursor: pointer;
-}
-
-.featured-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
-}
-
-.featured-image {
-  height: 200px;
-  background-size: cover;
-  background-position: center;
 }
 
 .featured-content {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
+}
+
+.featured-item {
+  background: var(--color-surface);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  cursor: pointer;
+  animation: slideIn 0.6s ease forwards;
+  animation-delay: var(--delay);
+  opacity: 0;
+}
+
+.featured-item:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.featured-image {
+  width: 100%;
+  height: 200px;
+  overflow: hidden;
+}
+
+.featured-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.featured-item:hover .featured-image img {
+  transform: scale(1.05);
+}
+
+.featured-info {
   padding: 1.5rem;
-}
-
-.featured-tag {
-  background: var(--color-primary);
-  color: white;
-  padding: 0.25rem 0.75rem;
-  border-radius: 15px;
-  font-size: 0.9rem;
-  display: inline-block;
-  margin-bottom: 1rem;
-}
-
-.featured-content h3 {
-  color: var(--color-text);
-  margin: 0 0 1rem;
-  font-size: 1.5rem;
-}
-
-.featured-content p {
-  color: var(--color-text);
-  opacity: 0.8;
-  margin: 0 0 1.5rem;
 }
 
 .article-meta {
   display: flex;
   justify-content: space-between;
-  color: var(--color-text);
-  opacity: 0.6;
+  margin-bottom: 0.8rem;
   font-size: 0.9rem;
 }
 
-/* 渐入动画 */
-.fade-in {
-  opacity: 0;
-  transform: translateY(30px);
-  animation: fadeIn 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+.category {
+  color: var(--color-primary);
+  font-weight: 500;
 }
 
-@keyframes fadeIn {
+.read-time {
+  color: var(--color-text-secondary);
+}
+
+.article-title {
+  font-size: 1.2rem;
+  margin: 0 0 0.8rem;
+  color: var(--color-text);
+  line-height: 1.4;
+}
+
+.article-preview {
+  font-size: 0.95rem;
+  color: var(--color-text-secondary);
+  margin: 0 0 1rem;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.article-date {
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+
+.mobile-indicators {
+  display: none;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-border);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.indicator.active {
+  background: var(--color-primary);
+  transform: scale(1.2);
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
 
+/* 移动端样式 */
 @media (max-width: 768px) {
-  .featured-grid {
-    grid-template-columns: 1fr;
-    gap: 1rem;
+  .featured-content {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    gap: 0;
+    margin: 0 -1rem;
+    padding: 0 1rem;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2rem;
   }
 
-  .featured-card {
-    height: 250px;
+  .featured-item {
+    flex: 0 0 100%;
+    scroll-snap-align: start;
+    display: none;
   }
+
+  .featured-item:nth-child(1) {
+    display: block;
+  }
+
+  .featured-image {
+    height: 180px;
+  }
+
+  .featured-info {
+    padding: 1rem;
+  }
+
+  .article-title {
+    font-size: 1.1rem;
+  }
+
+  .article-preview {
+    font-size: 0.9rem;
+    -webkit-line-clamp: 2;
+  }
+
+  .mobile-indicators {
+    display: flex;
+  }
+
+  /* 显示当前活动的文章 */
+  .featured-item:nth-child(1) {
+    display: block;
+    transform: translateX(calc(-100% * var(--current-index)));
+    transition: transform 0.3s ease;
+  }
+}
+
+/* 暗色主题适配 */
+:root.dark .featured-item {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+:root.dark .featured-item:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 </style> 

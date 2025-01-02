@@ -1,676 +1,670 @@
 <template>
-  <LoadingScreen :is-loading="isLoading" />
-  <div class="gallery" :class="{ 'content-loaded': !isLoading }">
-    <div class="gallery-container" v-observe-visibility="onContentVisible">
-      <!-- 搜索和筛选区域 -->
-      <div class="gallery-header" :class="{ 'fade-in': isContentVisible }">
-        <div class="search-bar">
-          <input 
-            type="text" 
-            v-model="searchQuery" 
-            placeholder="搜索图集..."
-            @input="handleSearch"
-          >
-        </div>
-        <div class="filter-tags">
-          <button 
-            v-for="tag in tags" 
-            :key="tag.id"
-            :class="{ active: currentTag === tag.id }"
-            @click="selectTag(tag.id)"
-          >
-            {{ tag.name }}
-          </button>
-        </div>
+  <div class="gallery-container">
+    <!-- 顶部筛选栏 -->
+    <div class="gallery-header">
+      <div class="filter-bar">
+        <button 
+          v-for="category in categories" 
+          :key="category.id"
+          :class="['filter-btn', { active: currentCategory === category.id }]"
+          @click="setCategory(category.id)"
+        >
+          {{ category.name }}
+        </button>
       </div>
+      <div class="view-toggle">
+        <button 
+          class="toggle-btn"
+          :class="{ active: viewMode === 'grid' }"
+          @click="viewMode = 'grid'"
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20">
+            <path fill="currentColor" d="M3 3h8v8H3V3zm0 10h8v8H3v-8zM13 3h8v8h-8V3zm0 10h8v8h-8v-8z"/>
+          </svg>
+        </button>
+        <button 
+          class="toggle-btn"
+          :class="{ active: viewMode === 'masonry' }"
+          @click="viewMode = 'masonry'"
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20">
+            <path fill="currentColor" d="M3 3h18v6H3V3zm0 8h12v10H3V11zm14 0h4v4h-4v-4zm0 6h4v4h-4v-4z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
 
-      <!-- 瀑布流图集 -->
-      <vue-masonry-wall 
-        v-if="filteredGallery.length"
-        :items="filteredGallery" 
-        :ssr="false"
-        :padding="20"
-        :column-width="280"
-        :class="{ 'fade-in': isContentVisible }"
-        style="animation-delay: 0.2s"
+    <!-- 图集内容 -->
+    <div :class="['gallery-content', viewMode]">
+      <div 
+        v-for="item in displayedGallery" 
+        :key="item.id"
+        class="gallery-item"
+        @click="openLightbox(item)"
       >
-        <template v-slot="{ item }">
-          <div class="gallery-item" @click="openGallery(item)">
-            <div class="image-wrapper">
-              <img 
-                v-lazy="item.cover" 
-                :alt="item.title"
-                loading="lazy"
-              >
+        <div class="item-container">
+          <div class="image-wrapper">
+            <!-- 加载占位 -->
+            <div 
+              class="image-placeholder"
+              :class="{ 'hidden': item.loaded }"
+            >
+              <div class="loading-spinner">
+                <svg viewBox="0 0 50 50" class="spinner-icon">
+                  <circle
+                    cx="25"
+                    cy="25"
+                    r="20"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="4"
+                    stroke-linecap="round"
+                  />
+                </svg>
+              </div>
             </div>
-            <div class="item-info">
+            <!-- 图片 -->
+            <img 
+              :src="item.thumbnail"
+              :alt="item.title"
+              @load="onImageLoad(item.id)"
+              :class="{ 'loaded': item.loaded }"
+            >
+          </div>
+          <div class="item-overlay">
+            <div class="item-content">
               <h3>{{ item.title }}</h3>
               <p>{{ item.description }}</p>
               <div class="item-meta">
-                <span class="date">{{ item.date }}</span>
-                <span class="views">👁️ {{ item.views }}</span>
-              </div>
-              <div class="item-tags">
-                <span v-for="tag in item.tags" :key="tag" class="tag">
-                  {{ tag }}
+                <span class="date">
+                  <svg viewBox="0 0 24 24" class="meta-icon">
+                    <path fill="currentColor" d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2zm0 18c-4.4 0-8-3.6-8-8s3.6-8 8-8 8 3.6 8 8-3.6 8-8 8zm.5-13H11v6l5.2 3.2.8-1.3-4.5-2.7V7z"/>
+                  </svg>
+                  {{ item.date }}
+                </span>
+                <span class="views">
+                  <svg viewBox="0 0 24 24" class="meta-icon">
+                    <path fill="currentColor" d="M12 4.5C7 4.5 2.7 7.6 1 12c1.7 4.4 6 7.5 11 7.5s9.3-3.1 11-7.5c-1.7-4.4-6-7.5-11-7.5zM12 17c-2.8 0-5-2.2-5-5s2.2-5 5-5 5 2.2 5 5-2.2 5-5 5zm0-8c-1.7 0-3 1.3-3 3s1.3 3 3 3 3-1.3 3-3-1.3-3-3-3z"/>
+                  </svg>
+                  {{ item.views }}
                 </span>
               </div>
             </div>
           </div>
-        </template>
-      </vue-masonry-wall>
+        </div>
+      </div>
+    </div>
 
-      <!-- 加载更多 -->
-      <div class="load-more" v-if="hasMore">
-        <button 
-          @click="loadMore" 
-          :disabled="loading"
-          :class="{ loading }"
-        >
-          {{ loading ? '加载中...' : '加载更多' }}
+    <!-- 加载更多 -->
+    <div class="load-more-container">
+      <div v-if="hasMore && !loading" class="load-more">
+        <button class="load-more-btn" @click="loadMore">
+          <span class="btn-content">
+            <svg viewBox="0 0 24 24" class="load-more-icon">
+              <path fill="currentColor" d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+            </svg>
+            加载更多
+          </span>
         </button>
+      </div>
+      <div v-if="loading" class="loading-more">
+        <div class="loading-spinner">
+          <svg viewBox="0 0 50 50" class="spinner-icon">
+            <circle
+              cx="25"
+              cy="25"
+              r="20"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="4"
+              stroke-linecap="round"
+            />
+          </svg>
+        </div>
+        <span>加载中...</span>
+      </div>
+    </div>
+
+    <!-- 图片预览 -->
+    <div 
+      v-if="selectedImage"
+      class="lightbox"
+      @click="closeLightbox"
+    >
+      <button class="close-btn" @click="closeLightbox">×</button>
+      <div class="lightbox-content" @click.stop>
+        <div class="lightbox-image-container">
+          <img :src="selectedImage.url" :alt="selectedImage.title">
+        </div>
+        <div class="lightbox-info">
+          <h2>{{ selectedImage.title }}</h2>
+          <p>{{ selectedImage.description }}</p>
+          <div class="lightbox-meta">
+            <span class="date">{{ selectedImage.date }}</span>
+            <span class="views">{{ selectedImage.views }} 浏览</span>
+          </div>
+        </div>
       </div>
     </div>
   </div>
-
-  <!-- 添加图片查看器组件 -->
-  <ImageViewer
-    :visible="isViewerVisible"
-    :images="currentImages"
-    :title="currentTitle"
-    :description="currentDescription"
-    @close="closeViewer"
-  />
 </template>
 
 <script lang="ts" setup>
 import { ref, computed, onMounted } from 'vue'
-import VueMasonryWall from '@yeger/vue-masonry-wall'
-import { useDebounce } from '@/composables/useDebounce'
-import LoadingScreen from '@/components/common/LoadingScreen.vue'
-import ImageViewer from '@/components/gallery/ImageViewer.vue'
 
-interface GalleryItem {
-  id: number
-  title: string
-  description: string
-  cover: string
-  images: string[]
-  date: string
-  views: number
-  tags: string[]
-}
-
-const searchQuery = ref('')
-const currentTag = ref<number | null>(null)
+const viewMode = ref<'grid' | 'masonry'>('grid')
+const currentCategory = ref('all')
 const loading = ref(false)
-const page = ref(1)
-const hasMore = ref(true)
-const isContentVisible = ref(false)
-const isLoading = ref(true)
+const selectedImage = ref<any>(null)
+const currentPage = ref(1)
+const pageSize = 12
+const loadedImages = ref<Set<number>>(new Set())
 
-const tags = ref([
-  { id: 1, name: '风景' },
-  { id: 2, name: '人像' },
-  { id: 3, name: '城市' },
-  { id: 4, name: '建筑' },
-  { id: 5, name: '生活' }
-])
+const categories = [
+  { id: 'all', name: '全部' },
+  { id: 'nature', name: '自然' },
+  { id: 'city', name: '城市' },
+  { id: 'people', name: '人物' },
+  { id: 'architecture', name: '建筑' },
+  { id: 'animal', name: '动物' }
+]
 
-const gallery = ref<GalleryItem[]>([
-  {
-    id: 1,
-    title: '青海湖的日落',
-    description: '记录青海湖畔的绝美日落时分，金色的阳光洒在湖面上...',
-    cover: 'https://picsum.photos/seed/gallery1/600/800',
-    images: [
-      'https://picsum.photos/seed/gallery1-1/1200/800',
-      'https://picsum.photos/seed/gallery1-2/800/1200',
-      'https://picsum.photos/seed/gallery1-3/1200/800'
-    ],
-    date: '2024-01-20',
-    views: 1234,
-    tags: ['风景', '自然']
-  },
-  {
-    id: 2,
-    title: '城市掠影',
-    description: '捕捉都市中的光与影，记录现代都市的繁华与静谧...',
-    cover: 'https://picsum.photos/seed/gallery2/600/800',
-    images: [
-      'https://picsum.photos/seed/gallery2-1/1200/800',
-      'https://picsum.photos/seed/gallery2-2/800/1200',
-      'https://picsum.photos/seed/gallery2-3/1200/800'
-    ],
-    date: '2024-01-18',
-    views: 986,
-    tags: ['城市', '建筑']
-  },
-  {
-    id: 3,
-    title: '人像摄影集',
-    description: '通过镜头记录不同人物的故事和情感...',
-    cover: 'https://picsum.photos/seed/gallery3/600/800',
-    images: [
-      'https://picsum.photos/seed/gallery3-1/1200/800',
-      'https://picsum.photos/seed/gallery3-2/800/1200',
-      'https://picsum.photos/seed/gallery3-3/1200/800'
-    ],
-    date: '2024-01-15',
-    views: 1567,
-    tags: ['人像', '生活']
-  },
-  {
-    id: 4,
-    title: '建筑几何',
-    description: '探索现代建筑的几何美学，展现建筑的力量与美感...',
-    cover: 'https://picsum.photos/seed/gallery4/600/800',
-    images: [
-      'https://picsum.photos/seed/gallery4-1/1200/800',
-      'https://picsum.photos/seed/gallery4-2/800/1200',
-      'https://picsum.photos/seed/gallery4-3/1200/800'
-    ],
-    date: '2024-01-12',
-    views: 892,
-    tags: ['建筑', '城市']
-  },
-  {
-    id: 5,
-    title: '自然印象',
-    description: '记录大自然的四季变迁，展现自然的神奇与美丽...',
-    cover: 'https://picsum.photos/seed/gallery5/600/800',
-    images: [
-      'https://picsum.photos/seed/gallery5-1/1200/800',
-      'https://picsum.photos/seed/gallery5-2/800/1200',
-      'https://picsum.photos/seed/gallery5-3/1200/800'
-    ],
-    date: '2024-01-10',
-    views: 1234,
-    tags: ['风景', '自然']
-  },
-  {
-    id: 6,
-    title: '街头摄影：城市印象',
-    description: '用相机记录城市中的精彩瞬间，展现都市生活的多彩面貌...',
-    cover: 'https://picsum.photos/seed/gallery6/400/600',
-    images: ['https://picsum.photos/seed/gallery6-1/1200/800'],
-    date: '2024-01-08',
-    views: 945,
-    tags: ['街拍', '城市', '生活']
-  },
-  {
-    id: 7,
-    title: '山水之间',
-    description: '行走在山水之间，感受大自然的鬼斧神工...',
-    cover: 'https://picsum.photos/seed/gallery7/600/400',
-    images: ['https://picsum.photos/seed/gallery7-1/1200/800'],
-    date: '2024-01-06',
-    views: 1432,
-    tags: ['风景', '自然']
-  },
-  {
-    id: 8,
-    title: '现代建筑美学',
-    description: '探索现代建筑的设计语言，记录城市发展的印记...',
-    cover: 'https://picsum.photos/seed/gallery8/500/800',
-    images: ['https://picsum.photos/seed/gallery8-1/1200/800'],
-    date: '2024-01-04',
-    views: 876,
-    tags: ['建筑', '城市']
-  },
-  {
-    id: 9,
-    title: '人文纪实',
-    description: '记录普通人的生活故事，展现生活的真实面貌...',
-    cover: 'https://picsum.photos/seed/gallery9/600/500',
-    images: ['https://picsum.photos/seed/gallery9-1/1200/800'],
-    date: '2024-01-02',
-    views: 1123,
-    tags: ['人文', '纪实', '生活']
-  },
-  {
-    id: 10,
-    title: '自然微距',
-    description: '走进自然的微观世界，发现平凡中的非凡...',
-    cover: 'https://picsum.photos/seed/gallery10/500/700',
-    images: ['https://picsum.photos/seed/gallery10-1/1200/800'],
-    date: '2023-12-30',
-    views: 892,
-    tags: ['自然', '微距']
-  },
-  {
-    id: 11,
-    title: '城市夜景',
-    description: '捕捉城市的璀璨夜色，展现不夜城的魅力...',
-    cover: 'https://picsum.photos/seed/gallery11/600/900',
-    images: ['https://picsum.photos/seed/gallery11-1/1200/800'],
-    date: '2023-12-28',
-    views: 1567,
-    tags: ['城市', '夜景']
-  },
-  {
-    id: 12,
-    title: '旅行日记：西藏行',
-    description: '记录在西藏高原的所见所闻，分享神秘西藏的独特魅力...',
-    cover: 'https://picsum.photos/seed/gallery12/500/600',
-    images: ['https://picsum.photos/seed/gallery12-1/1200/800'],
-    date: '2023-12-26',
-    views: 2134,
-    tags: ['风景', '旅行', '人文']
-  },
-  {
-    id: 13,
-    title: '工业摄影',
-    description: '探索工业设施的几何美感，展现现代工业的力量...',
-    cover: 'https://picsum.photos/seed/gallery13/700/500',
-    images: ['https://picsum.photos/seed/gallery13-1/1200/800'],
-    date: '2023-12-24',
-    views: 765,
-    tags: ['工业', '建筑']
-  },
-  {
-    id: 14,
-    title: '雨中即景',
-    description: '记录雨中的城市风景，展现雨天独特的诗意...',
-    cover: 'https://picsum.photos/seed/gallery14/400/700',
-    images: ['https://picsum.photos/seed/gallery14-1/1200/800'],
-    date: '2023-12-22',
-    views: 987,
-    tags: ['城市', '风景']
-  },
-  {
-    id: 15,
-    title: '人像：光影之美',
-    description: '探索光影在人像摄影中的运用，创造独特的视觉效果...',
-    cover: 'https://picsum.photos/seed/gallery15/600/800',
-    images: ['https://picsum.photos/seed/gallery15-1/1200/800'],
-    date: '2023-12-20',
-    views: 1432,
-    tags: ['人像', '艺术']
-  },
-  {
-    id: 16,
-    title: '老街记忆',
-    description: '漫步老街巷弄，记录城市的历史印记...',
-    cover: 'https://picsum.photos/seed/gallery16/500/400',
-    images: ['https://picsum.photos/seed/gallery16-1/1200/800'],
-    date: '2023-12-18',
-    views: 876,
-    tags: ['街拍', '人文']
-  },
-  {
-    id: 17,
-    title: '花卉摄影',
-    description: '记录花卉的绚丽色彩，展现大自然的精致之美...',
-    cover: 'https://picsum.photos/seed/gallery17/400/500',
-    images: ['https://picsum.photos/seed/gallery17-1/1200/800'],
-    date: '2023-12-16',
-    views: 654,
-    tags: ['自然', '微距']
-  },
-  {
-    id: 18,
-    title: '海边剪影',
-    description: '捕捉海边的剪影瞬间，展现大海的浪漫与神秘...',
-    cover: 'https://picsum.photos/seed/gallery18/700/400',
-    images: ['https://picsum.photos/seed/gallery18-1/1200/800'],
-    date: '2023-12-14',
-    views: 1234,
-    tags: ['风景', '自然']
-  },
-  {
-    id: 19,
-    title: '现代舞台',
-    description: '记录现代舞台表演的精彩瞬间，展现艺术的感染力...',
-    cover: 'https://picsum.photos/seed/gallery19/500/700',
-    images: ['https://picsum.photos/seed/gallery19-1/1200/800'],
-    date: '2023-12-12',
-    views: 897,
-    tags: ['艺术', '人文']
-  },
-  {
-    id: 20,
-    title: '冬日印象',
-    description: '记录冬日里的温暖瞬间，展现冬季的独特魅力...',
-    cover: 'https://picsum.photos/seed/gallery20/600/500',
-    images: ['https://picsum.photos/seed/gallery20-1/1200/800'],
-    date: '2023-12-10',
-    views: 765,
-    tags: ['风景', '生活']
+// 生成30张图片的数据
+const generateGalleryData = () => {
+  const data = []
+  const categories = ['nature', 'city', 'people', 'architecture', 'animal']
+  const descriptions = [
+    '壮丽的自然风光',
+    '繁华的城市夜景',
+    '温暖的人文瞬间',
+    '宏伟的建筑设计',
+    '可爱的动物世界'
+  ]
+  
+  for (let i = 1; i <= 30; i++) {
+    const categoryIndex = Math.floor(Math.random() * categories.length)
+    data.push({
+      id: i,
+      title: `图片 ${i}`,
+      description: descriptions[categoryIndex],
+      thumbnail: `https://picsum.photos/seed/${i}/400/300`,
+      url: `https://picsum.photos/seed/${i}/1200/900`,
+      category: categories[categoryIndex],
+      date: `2024-${String(Math.floor(Math.random() * 12) + 1).padStart(2, '0')}-${String(Math.floor(Math.random() * 28) + 1).padStart(2, '0')}`,
+      views: Math.floor(Math.random() * 1000) + 100,
+      loaded: false
+    })
   }
-])
-
-const handleSearch = useDebounce(() => {
-  // 实现搜索逻辑
-}, 300)
-
-const selectTag = (tagId: number) => {
-  currentTag.value = currentTag.value === tagId ? null : tagId
-  page.value = 1
+  return data
 }
+
+const gallery = ref(generateGalleryData())
 
 const filteredGallery = computed(() => {
-  let result = gallery.value
-
-  if (searchQuery.value) {
-    result = result.filter(item => 
-      item.title.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchQuery.value.toLowerCase())
-    )
-  }
-
-  if (currentTag.value) {
-    const tagName = tags.value.find(t => t.id === currentTag.value)?.name
-    result = result.filter(item => item.tags.includes(tagName || ''))
-  }
-
-  return result
+  if (currentCategory.value === 'all') return gallery.value
+  return gallery.value.filter(item => item.category === currentCategory.value)
 })
+
+const displayedGallery = computed(() => {
+  return filteredGallery.value.slice(0, currentPage.value * pageSize)
+})
+
+const hasMore = computed(() => {
+  return displayedGallery.value.length < filteredGallery.value.length
+})
+
+const setCategory = (category: string) => {
+  currentCategory.value = category
+  currentPage.value = 1
+  gallery.value.forEach(item => {
+    item.loaded = false
+  })
+}
 
 const loadMore = async () => {
+  if (loading.value) return
   loading.value = true
-  // 模拟加载更多图集
-  await new Promise(resolve => setTimeout(resolve, 1000))
-  loading.value = false
-  page.value++
-  if (page.value > 3) hasMore.value = false
+  
+  try {
+    // 模拟加载延迟
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    currentPage.value++
+  } finally {
+    loading.value = false
+  }
 }
 
-const onContentVisible = (visible: boolean) => {
-  if (visible) isContentVisible.value = true
+const onImageLoad = (id: number) => {
+  const item = gallery.value.find(item => item.id === id)
+  if (item) {
+    item.loaded = true
+  }
 }
 
-// 添加查看器相关的状态
-const isViewerVisible = ref(false)
-const currentImages = ref<string[]>([])
-const currentTitle = ref('')
-const currentDescription = ref('')
-
-// 更新 openGallery 方法
-const openGallery = (item: GalleryItem) => {
-  currentImages.value = item.images
-  currentTitle.value = item.title
-  currentDescription.value = item.description
-  isViewerVisible.value = true
+const openLightbox = (image: any) => {
+  selectedImage.value = image
+  document.body.style.overflow = 'hidden'
 }
 
-// 添加关闭查看器方法
-const closeViewer = () => {
-  isViewerVisible.value = false
+const closeLightbox = () => {
+  selectedImage.value = null
+  document.body.style.overflow = ''
 }
-
-onMounted(() => {
-  // 模拟加载时间
-  setTimeout(() => {
-    isLoading.value = false
-  }, 800)
-})
 </script>
 
 <style scoped>
-.gallery {
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 2rem;
-  opacity: 0;
-  transition: opacity 0.5s ease;
-}
-
 .gallery-container {
-  width: 100%;
+  padding: 2rem;
+  max-width: 100%;
+  margin: 0;
 }
 
 .gallery-header {
-  margin-bottom: 2rem;
-}
-
-.search-bar {
-  margin-bottom: 1rem;
-}
-
-.search-bar input {
-  width: 100%;
-  max-width: 400px;
-  padding: 0.8rem 1.2rem;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  font-size: 1rem;
-  background: var(--color-surface);
-  color: var(--color-text);
-}
-
-.filter-tags {
   display: flex;
-  gap: 0.8rem;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 2rem;
-  padding: 0.5rem 0;
+  gap: 1rem;
 }
 
-.filter-tags button {
-  padding: 0.6rem 1.2rem;
-  border: 1px solid var(--color-border);
+.filter-bar {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.filter-btn {
+  padding: 0.5rem 1rem;
   border-radius: 20px;
   background: var(--color-surface);
   color: var(--color-text);
+  border: 1px solid var(--color-border);
   cursor: pointer;
   transition: all 0.3s ease;
-  font-size: 0.95rem;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  white-space: nowrap;
 }
 
-.filter-tags button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.filter-tags button.active {
+.filter-btn.active {
   background: var(--color-primary);
   color: white;
   border-color: var(--color-primary);
-  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.2);
+}
+
+.view-toggle {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.toggle-btn {
+  padding: 0.5rem;
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.toggle-btn.active {
+  background: var(--color-primary);
+  color: white;
+}
+
+.gallery-content {
+  margin: 0 -1rem;
+}
+
+.gallery-content.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+  padding: 0;
+}
+
+.gallery-content.masonry {
+  column-count: 4;
+  column-gap: 2rem;
+  padding: 0 1rem;
 }
 
 .gallery-item {
-  border-radius: 12px;
-  overflow: hidden;
-  background: var(--color-surface);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  cursor: pointer;
-  border: 1px solid rgba(var(--color-border-rgb), 0.1);
-  margin: 0 8px 24px;
-  width: calc(100% - 16px);
+  break-inside: avoid;
+  margin-bottom: 1.5rem;
 }
 
-.gallery-item:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
-}
-
-.image-wrapper {
+.item-container {
   position: relative;
+  background: var(--color-surface);
+  border-radius: 8px;
   overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
 }
 
-.image-wrapper img {
+.item-container:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.item-container img {
   width: 100%;
-  height: auto;
-  display: block;
+  height: 100%;
+  object-fit: cover;
   transition: transform 0.3s ease;
 }
 
-.gallery-item:hover .image-wrapper img {
+.item-container:hover img {
   transform: scale(1.05);
 }
 
-.item-info {
+.item-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
   padding: 1.5rem;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(0, 0, 0, 0.85)
+  );
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.3s ease;
 }
 
-.item-info h3 {
-  margin: 0 0 1rem;
-  color: var(--color-text);
+.item-container:hover .item-overlay {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.item-content {
+  position: relative;
+  z-index: 2;
+}
+
+.item-content h3 {
+  color: #ffffff;
   font-size: 1.2rem;
-  line-height: 1.4;
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
-.item-info p {
-  margin: 0 0 1.2rem;
-  color: var(--color-text);
-  opacity: 0.8;
+.item-content p {
+  color: rgba(255, 255, 255, 0.9);
   font-size: 0.95rem;
-  line-height: 1.6;
+  margin: 0 0 0.8rem;
+  line-height: 1.4;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .item-meta {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.2rem;
-  color: var(--color-text);
-  opacity: 0.7;
+  gap: 1rem;
+  margin-top: 0.5rem;
   font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
 }
 
-.item-tags {
+.meta-icon {
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+  margin-right: 4px;
+  opacity: 0.8;
+}
+
+.date, .views {
   display: flex;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-  padding-top: 0.5rem;
-  border-top: 1px solid rgba(var(--color-border-rgb), 0.1);
+  align-items: center;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
-.tag {
-  padding: 0.4rem 1rem;
-  background: rgba(var(--color-primary-rgb), 0.1);
-  color: var(--color-primary);
-  border-radius: 15px;
-  font-size: 0.85rem;
-  transition: all 0.3s ease;
-}
-
-.gallery-item:hover .tag {
-  background: rgba(var(--color-primary-rgb), 0.15);
+.load-more-container {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 2rem 0;
 }
 
 .load-more {
-  text-align: center;
-  margin-top: 3rem;
+  width: 100%;
+  max-width: 200px;
 }
 
-.load-more button {
-  padding: 0.8rem 2rem;
+.load-more-btn {
+  width: 100%;
+  padding: 0.8rem 1.5rem;
+  border-radius: 8px;
   background: var(--color-primary);
   color: white;
   border: none;
-  border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s ease;
+  font-size: 1rem;
+  font-weight: 500;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.3);
 }
 
-.load-more button:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
+.load-more-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(var(--color-primary-rgb), 0.4);
 }
 
-.fade-in {
-  opacity: 0;
-  transform: translateY(30px);
-  animation: fadeIn 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+.load-more-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(var(--color-primary-rgb), 0.3);
 }
 
-@keyframes fadeIn {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.btn-content {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
-.content-loaded {
-  opacity: 1;
+.load-more-icon {
+  width: 20px;
+  height: 20px;
 }
 
-/* 响应式调整 */
+.loading-more {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+  color: var(--color-text);
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  color: var(--color-primary);
+}
+
+.spinner-icon {
+  animation: rotate 2s linear infinite;
+  width: 100%;
+  height: 100%;
+}
+
+/* 暗色主题适配 */
+:root.dark .item-container {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+:root.dark .item-container:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+:root.dark .load-more-btn {
+  box-shadow: 0 4px 12px rgba(var(--color-primary-rgb), 0.2);
+}
+
+:root.dark .load-more-btn:hover {
+  box-shadow: 0 6px 16px rgba(var(--color-primary-rgb), 0.3);
+}
+
+/* 移动端适配 */
 @media (max-width: 768px) {
-  .gallery {
+  .gallery-container {
     padding: 1rem;
   }
 
   .gallery-header {
-    margin-bottom: 1.5rem;
+    flex-direction: column;
+    align-items: flex-start;
   }
 
-  .search-bar input {
-    font-size: 0.95rem;
+  .filter-bar {
+    width: 100%;
   }
 
-  .filter-tags {
-    padding: 0.3rem 0;
-    margin-bottom: 1.5rem;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none; /* Firefox */
-    -ms-overflow-style: none; /* IE and Edge */
+  .gallery-content.grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1rem;
   }
 
-  .filter-tags::-webkit-scrollbar {
-    display: none; /* Chrome, Safari and Opera */
+  .gallery-content.masonry {
+    column-count: 1;
   }
 
-  .filter-tags button {
-    padding: 0.5rem 1rem;
-    font-size: 0.9rem;
-    white-space: nowrap;
+  .item-overlay {
+    opacity: 1;
+    transform: none;
+    padding: 1rem;
+    background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      rgba(0, 0, 0, 0.75) 30%,
+      rgba(0, 0, 0, 0.9) 100%
+    );
   }
 
-  .item-info {
-    padding: 1.2rem;
-  }
-
-  .item-info h3 {
+  .item-content h3 {
     font-size: 1.1rem;
-    margin-bottom: 0.8rem;
   }
 
-  .item-info p {
+  .item-content p {
     font-size: 0.9rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0.6rem;
   }
 
   .item-meta {
-    margin-bottom: 1rem;
-  }
-
-  .tag {
-    padding: 0.3rem 0.8rem;
     font-size: 0.8rem;
   }
 
-  :deep(.masonry-wall) {
-    padding: 0 8px;
+  .meta-icon {
+    width: 14px;
+    height: 14px;
   }
 
-  .gallery-item {
-    margin: 0 6px 16px;
-    width: calc(100% - 12px);
+  .lightbox-content {
+    width: 100%;
+    height: 100%;
+    max-width: 100vw;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .lightbox-image-container {
+    height: 60vh;
+  }
+
+  .lightbox-info {
+    padding: 1rem;
+  }
+
+  .load-more-container {
+    margin: 1.5rem 0;
+  }
+
+  .load-more-btn {
+    padding: 0.7rem 1.2rem;
+    font-size: 0.95rem;
+  }
+
+  .load-more-icon {
+    width: 18px;
+    height: 18px;
   }
 }
 
-/* 暗色模式优化 */
-@media (prefers-color-scheme: dark) {
-  .gallery-item {
-    background: rgba(var(--color-surface-rgb), 0.8);
-    backdrop-filter: blur(10px);
-  }
+.image-wrapper {
+  position: relative;
+  width: 100%;
+  padding-top: 75%;
+  background: var(--color-surface);
+  border-radius: 8px;
+  overflow: hidden;
+}
 
-  .filter-tags button {
-    background: rgba(var(--color-surface-rgb), 0.8);
-    backdrop-filter: blur(5px);
+.image-placeholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--color-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.3s ease;
+}
+
+.image-placeholder.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+img.loaded {
+  opacity: 1;
+}
+
+.spinner-icon {
+  animation: rotate 2s linear infinite;
+}
+
+.spinner-icon circle {
+  stroke: currentColor;
+  stroke-dasharray: 128;
+  stroke-dashoffset: 128;
+  animation: dash 1.5s ease-in-out infinite;
+}
+
+@keyframes rotate {
+  100% {
+    transform: rotate(360deg);
   }
 }
 
-/* 调整瀑布流容器样式 */
-:deep(.masonry-wall) {
-  padding: 0 12px;
+@keyframes dash {
+  0% {
+    stroke-dashoffset: 128;
+  }
+  50% {
+    stroke-dashoffset: 32;
+  }
+  100% {
+    stroke-dashoffset: 128;
+  }
 }
 </style> 

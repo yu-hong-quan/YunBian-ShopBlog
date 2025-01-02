@@ -7,6 +7,7 @@ import mavonEditor from 'mavon-editor'
 import '@/styles/global.css'
 import 'mavon-editor/dist/css/index.css'
 import './assets/styles/reset.css'
+import './assets/styles/variables.css'
 
 const app = createApp(App)
 

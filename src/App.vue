@@ -16,9 +16,16 @@ import Footer from '@/components/common/Footer.vue'
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  padding-top: 64px; /* 桌面端导航栏高度 */
 }
 
 .app-container > :not(footer) {
   flex: 1;
+}
+
+@media (max-width: 768px) {
+  .app-container {
+    padding-top: 56px; /* 移动端导航栏高度 */
+  }
 }
 </style>

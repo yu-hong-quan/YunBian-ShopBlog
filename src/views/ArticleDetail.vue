@@ -1,355 +1,415 @@
 <template>
-  <div class="article-detail" v-observe-visibility="onContentVisible">
-    <!-- 文章头部 -->
-    <header class="article-header" :class="{ 'fade-in': isContentVisible }">
-      <div class="header-content">
+  <LoadingScreen :is-loading="isLoading" />
+  
+  <div class="article-detail" :class="{ 'content-loaded': !isLoading }">
+    <div class="article-header" v-if="article">
+      <div class="article-cover">
+        <!-- 封面图加载效果 -->
+        <div 
+          class="image-placeholder"
+          :class="{ 'hidden': imageLoaded }"
+        >
+          <div class="loading-spinner">
+            <svg viewBox="0 0 50 50" class="spinner-icon">
+              <circle
+                cx="25"
+                cy="25"
+                r="20"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="4"
+                stroke-linecap="round"
+              />
+            </svg>
+          </div>
+        </div>
+        <img 
+          :src="article.cover" 
+          :alt="article.title"
+          @load="onImageLoad"
+          :class="{ 'loaded': imageLoaded }"
+        >
+      </div>
+      
+      <div class="article-info">
         <div class="article-meta">
-          <div class="meta-left">
-            <span class="category">{{ article.category }}</span>
-            <span class="date">{{ article.date }}</span>
-            <span class="read-time">{{ article.readTime }}分钟阅读</span>
-          </div>
-          <div class="meta-right">
-            <span class="views">👁️ {{ article.views }}</span>
-            <span class="likes">❤️ {{ article.likes }}</span>
-          </div>
+          <span class="category">{{ article.category }}</span>
+          <span class="date">{{ article.date }}</span>
         </div>
         <h1 class="article-title">{{ article.title }}</h1>
-        <div class="article-tags">
-          <span v-for="tag in article.tags" :key="tag" class="tag">{{ tag }}</span>
+        <div class="article-stats">
+          <span class="read-time">
+            <svg viewBox="0 0 24 24" class="meta-icon">
+              <path fill="currentColor" d="M12 4.5C7 4.5 2.7 7.6 1 12c1.7 4.4 6 7.5 11 7.5s9.3-3.1 11-7.5c-1.7-4.4-6-7.5-11-7.5zM12 17c-2.8 0-5-2.2-5-5s2.2-5 5-5 5 2.2 5 5-2.2 5-5 5z"/>
+            </svg>
+            {{ article.readTime }}分钟阅读
+          </span>
+          <span class="views">
+            <svg viewBox="0 0 24 24" class="meta-icon">
+              <path fill="currentColor" d="M12 4.5C7 4.5 2.7 7.6 1 12c1.7 4.4 6 7.5 11 7.5s9.3-3.1 11-7.5c-1.7-4.4-6-7.5-11-7.5zM12 17c-2.8 0-5-2.2-5-5s2.2-5 5-5 5 2.2 5 5-2.2 5-5 5z"/>
+            </svg>
+            {{ article.views }} 阅读
+          </span>
+          <span class="likes">
+            <svg viewBox="0 0 24 24" class="meta-icon">
+              <path fill="currentColor" d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+            </svg>
+            {{ article.likes }} 喜欢
+          </span>
         </div>
       </div>
-      <!-- 编辑按钮 -->
-      <button
-        class="edit-btn"
-        @click="handleEdit"
-      >
-        编辑文章
-      </button>
-    </header>
-
-    <!-- 文章封面 -->
-    <div 
-      class="article-cover" 
-      :class="{ 'fade-in': isContentVisible }"
-      style="animation-delay: 0.2s"
-    >
-      <img :src="article.cover" :alt="article.title">
     </div>
 
-    <!-- 文章内容 -->
-    <div 
-      class="article-content" 
-      :class="{ 'fade-in': isContentVisible }"
-      style="animation-delay: 0.4s"
-    >
-      <div class="content-wrapper">
-        {{ article.content }}
-      </div>
-    </div>
-
-    <!-- 相关文章 -->
-    <div 
-      class="related-articles"
-      :class="{ 'fade-in': isContentVisible }"
-      style="animation-delay: 0.6s"
-    >
-      <h2>相关文章</h2>
-      <div class="related-grid">
-        <article 
-          v-for="item in relatedArticles" 
-          :key="item.id" 
-          class="related-card"
-          @click="navigateToArticle(item.id, item.category)"
-        >
-          <div class="related-image">
-            <img :src="item.cover" :alt="item.title">
-          </div>
-          <div class="related-content">
-            <h3>{{ item.title }}</h3>
-            <p>{{ item.preview }}</p>
-          </div>
-        </article>
-      </div>
+    <div class="article-content" v-if="article">
+      <div class="content-body markdown-body" v-html="renderedContent"></div>
     </div>
   </div>
 </template>
 
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useAuth } from '@/composables/useAuth'
+import { useRoute } from 'vue-router'
+import MarkdownIt from 'markdown-it'
+import LoadingScreen from '@/components/common/LoadingScreen.vue'
 
-const { isAdmin } = useAuth()
-const route = useRoute()
-const router = useRouter()
-const isContentVisible = ref(false)
-
-const article = ref({
-  id: 1,
-  title: 'Vue 3 组合式 API 最佳实践',
-  content: '这里是文章的详细内容...',
-  date: '2024-01-20',
-  category: '技术',
-  cover: 'https://picsum.photos/seed/article1/1200/600',
-  tags: ['Vue', 'TypeScript', '前端开发'],
-  readTime: 15,
-  views: 1234,
-  likes: 88
+const md = new MarkdownIt({
+  html: true,
+  linkify: true,
+  typographer: true
 })
 
-const relatedArticles = ref([
-  {
-    id: 2,
-    title: '前端性能优化实践',
-    preview: '探索现代前端应用的性能优化技巧...',
-    cover: 'https://picsum.photos/seed/article2/600/400'
-  },
-  {
-    id: 3,
-    title: 'TypeScript 高级特性详解',
-    preview: '深入理解 TypeScript 的类型系统...',
-    cover: 'https://picsum.photos/seed/article3/600/400'
+const route = useRoute()
+const article = ref<any>(null)
+const isLoading = ref(true)
+const imageLoaded = ref(false)
+
+const renderedContent = ref('')
+
+const onImageLoad = () => {
+  imageLoaded.value = true
+}
+
+onMounted(async () => {
+  try {
+    const articleId = Number(route.params.id)
+    // 模拟 API 请求延迟
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    // 模拟文章数据
+    article.value = {
+      id: articleId,
+      title: 'Vue 3 + TypeScript 实战指南',
+      content: `
+# Vue 3 + TypeScript 实战指南
+
+## 1. 介绍
+
+Vue 3 带来了许多激动人心的新特性，结合 TypeScript 可以让我们的代码更加健壮和易于维护。
+
+## 2. 组合式 API
+
+组合式 API 是 Vue 3 最重要的特性之一，它允许我们：
+
+- 更好地组织代码逻辑
+- 提高代码的可复用性
+- 更好的 TypeScript 支持
+
+### 示例代码
+
+\`\`\`typescript
+import { ref, onMounted } from 'vue'
+
+interface User {
+  id: number
+  name: string
+}
+
+export function useUser() {
+  const user = ref<User | null>(null)
+  
+  const fetchUser = async (id: number) => {
+    // 实现获取用户数据的逻辑
   }
-])
-
-const onContentVisible = (visible: boolean) => {
-  if (visible) isContentVisible.value = true
-}
-
-const articleId = route.params.id
-const category = route.query.category as string
-
-const navigateToArticle = (id: number, category: string) => {
-  router.push({
-    name: 'ArticleDetail',
-    params: { id },
-    query: { category }
+  
+  onMounted(() => {
+    // 组件挂载时的逻辑
   })
+  
+  return {
+    user,
+    fetchUser
+  }
 }
+\`\`\`
 
-const handleEdit = () => {
-  router.push(`/admin/editor?id=${route.params.id}`)
-}
+## 3. 性能优化
 
-onMounted(() => {
-  // 这里可以根据路由参数获取文章详情
-  const articleId = route.params.id
-  // fetchArticleDetails(articleId)
+Vue 3 在性能方面有很大提升...
+      `,
+      date: '2024-01-15',
+      category: '技术',
+      cover: `https://picsum.photos/seed/article${articleId}/1200/400`,
+      readTime: 15,
+      views: 1234,
+      likes: 88
+    }
+    
+    // 渲染 Markdown 内容
+    renderedContent.value = md.render(article.value.content)
+  } catch (error) {
+    console.error('Failed to fetch article:', error)
+  } finally {
+    isLoading.value = false
+  }
 })
 </script>
 
 <style scoped>
 .article-detail {
-  max-width: 1200px;
+  max-width: 1000px;
   margin: 0 auto;
   padding: 2rem;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.content-loaded {
+  opacity: 1;
 }
 
 .article-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 2rem;
   margin-bottom: 2rem;
 }
 
-.header-content {
-  flex: 1;
-}
-
-.article-meta {
-  display: flex;
-  justify-content: space-between;
-  gap: 2rem;
-  margin-bottom: 1.5rem;
-  color: var(--color-text);
-  opacity: 0.8;
-}
-
-.meta-left, .meta-right {
-  display: flex;
-  gap: 1rem;
-}
-
-.article-title {
-  font-size: 2.5rem;
-  color: var(--color-text);
-  margin: 1rem 0;
-}
-
-.article-tags {
-  display: flex;
-  gap: 0.8rem;
-  flex-wrap: wrap;
-}
-
-.tag {
-  background: rgba(var(--color-primary-rgb), 0.1);
-  color: var(--color-primary);
-  padding: 0.25rem 0.75rem;
-  border-radius: 15px;
-  font-size: 0.9rem;
-}
-
 .article-cover {
-  margin-bottom: 3rem;
+  width: 100%;
+  height: 400px;
   border-radius: 12px;
   overflow: hidden;
+  margin-bottom: 2rem;
+  position: relative;
 }
 
 .article-cover img {
   width: 100%;
-  height: auto;
+  height: 100%;
   object-fit: cover;
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
-.article-content {
-  margin-bottom: 4rem;
+.article-cover img.loaded {
+  opacity: 1;
 }
 
-.content-wrapper {
-  max-width: 800px;
-  margin: 0 auto;
+.article-info {
+  text-align: center;
+}
+
+.article-meta {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.category {
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+.date {
+  color: var(--color-text-secondary);
+}
+
+.article-title {
+  font-size: 2.5rem;
+  margin: 0 0 1.5rem;
+  color: var(--color-text);
+  line-height: 1.3;
+}
+
+.article-stats {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  color: var(--color-text-secondary);
+}
+
+.meta-icon {
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+.content-body {
+  font-size: 1.1rem;
   line-height: 1.8;
   color: var(--color-text);
 }
 
-.related-articles {
-  margin-top: 4rem;
-  padding-top: 2rem;
-  border-top: 1px solid var(--color-border);
-}
-
-.related-articles h2 {
-  margin-bottom: 2rem;
-  color: var(--color-text);
-}
-
-.related-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 2rem;
-}
-
-.related-card {
-  background: var(--color-surface);
-  border-radius: 12px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.related-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.1);
-}
-
-.related-image {
-  height: 200px;
-  overflow: hidden;
-}
-
-.related-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s ease;
-}
-
-.related-card:hover .related-image img {
-  transform: scale(1.05);
-}
-
-.related-content {
-  padding: 1.5rem;
-}
-
-.related-content h3 {
-  margin: 0 0 1rem;
-  color: var(--color-text);
-}
-
-.related-content p {
-  margin: 0;
-  color: var(--color-text);
-  opacity: 0.8;
-}
-
-/* 渐入动画 */
-.fade-in {
-  opacity: 0;
-  transform: translateY(30px);
-  animation: fadeIn 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-@keyframes fadeIn {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* 响应式调整 */
+/* 移动端适配 */
 @media (max-width: 768px) {
   .article-detail {
     padding: 1rem;
   }
 
-  .article-header {
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .article-meta {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .meta-left, .meta-right {
-    width: 100%;
-    justify-content: flex-start;
+  .article-cover {
+    height: 200px;
+    margin-bottom: 1.5rem;
   }
 
   .article-title {
-    font-size: 2rem;
-    margin: 0.5rem 0;
+    font-size: 1.8rem;
   }
 
-  .edit-btn {
-    align-self: flex-start;
-  }
-
-  .related-articles {
-    grid-template-columns: 1fr;
+  .article-stats {
     gap: 1rem;
+    flex-wrap: wrap;
   }
 
-  .related-card {
-    flex-direction: row;
-    height: auto;
-  }
-
-  .related-image {
-    width: 120px;
-    height: 80px;
+  .content-body {
+    font-size: 1rem;
   }
 }
 
-.edit-btn {
-  padding: 0.6rem 1.2rem;
-  background: var(--color-primary);
-  color: white;
-  border: none;
+/* 暗色主题适配 */
+:root.dark .article-detail {
+  background: var(--color-surface);
+}
+
+.image-placeholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--color-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.3s ease;
+}
+
+.image-placeholder.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  color: var(--color-primary);
+}
+
+.spinner-icon {
+  animation: rotate 2s linear infinite;
+}
+
+.spinner-icon circle {
+  stroke: currentColor;
+  stroke-dasharray: 128;
+  stroke-dashoffset: 128;
+  animation: dash 1.5s ease-in-out infinite;
+}
+
+@keyframes rotate {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes dash {
+  0% {
+    stroke-dashoffset: 128;
+  }
+  50% {
+    stroke-dashoffset: 32;
+  }
+  100% {
+    stroke-dashoffset: 128;
+  }
+}
+
+/* Markdown 样式 */
+.markdown-body {
+  color: var(--color-text);
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4,
+.markdown-body h5,
+.markdown-body h6 {
+  color: var(--color-text);
+  margin: 1.5em 0 0.5em;
+}
+
+.markdown-body h1 {
+  font-size: 2em;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 0.3em;
+}
+
+.markdown-body h2 {
+  font-size: 1.5em;
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 0.3em;
+}
+
+.markdown-body p {
+  margin: 1em 0;
+  line-height: 1.8;
+}
+
+.markdown-body code {
+  background-color: var(--color-surface);
+  padding: 0.2em 0.4em;
+  border-radius: 3px;
+  font-family: monospace;
+}
+
+.markdown-body pre {
+  background-color: var(--color-surface);
+  padding: 1em;
   border-radius: 8px;
-  font-size: 1rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  white-space: nowrap;
-  flex-shrink: 0;
+  overflow-x: auto;
 }
 
-.edit-btn:hover {
-  background: var(--color-primary-dark);
+.markdown-body pre code {
+  background-color: transparent;
+  padding: 0;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  padding-left: 2em;
+  margin: 1em 0;
+}
+
+.markdown-body li {
+  margin: 0.5em 0;
+}
+
+.markdown-body blockquote {
+  margin: 1em 0;
+  padding-left: 1em;
+  border-left: 4px solid var(--color-primary);
+  color: var(--color-text-secondary);
+}
+
+/* 暗色主题适配 */
+:root.dark .markdown-body {
+  color: var(--color-text);
+}
+
+:root.dark .markdown-body code {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+:root.dark .markdown-body pre {
+  background-color: rgba(255, 255, 255, 0.1);
 }
 </style> 

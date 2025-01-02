@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@yeger/vue-masonry-wall": "^4.2.1",
+    "markdown-it": "^14.1.0",
     "mavon-editor": "^3.0.1",
     "vue": "^3.3.11",
     "vue-lazyload": "^3.0.0",
