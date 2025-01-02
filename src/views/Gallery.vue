@@ -1,5 +1,6 @@
 <template>
-  <div class="gallery-container">
+  <LoadingScreen :is-loading="isLoading" />
+  <div class="gallery-container" :class="{ 'content-loaded': !isLoading }">
     <!-- 顶部筛选栏 -->
     <div class="gallery-header">
       <div class="filter-bar">
@@ -40,7 +41,7 @@
         v-for="item in displayedGallery" 
         :key="item.id"
         class="gallery-item"
-        @click="openLightbox(item)"
+        @click="openViewer(item)"
       >
         <div class="item-container">
           <div class="image-wrapper">
@@ -125,40 +126,28 @@
       </div>
     </div>
 
-    <!-- 图片预览 -->
-    <div 
+    <!-- 使用现有的 ImageViewer 组件 -->
+    <ImageViewer
       v-if="selectedImage"
-      class="lightbox"
-      @click="closeLightbox"
-    >
-      <button class="close-btn" @click="closeLightbox">×</button>
-      <div class="lightbox-content" @click.stop>
-        <div class="lightbox-image-container">
-          <img :src="selectedImage.url" :alt="selectedImage.title">
-        </div>
-        <div class="lightbox-info">
-          <h2>{{ selectedImage.title }}</h2>
-          <p>{{ selectedImage.description }}</p>
-          <div class="lightbox-meta">
-            <span class="date">{{ selectedImage.date }}</span>
-            <span class="views">{{ selectedImage.views }} 浏览</span>
-          </div>
-        </div>
-      </div>
-    </div>
+      :image="selectedImage"
+      @close="closeViewer"
+    />
   </div>
 </template>
 
 <script lang="ts" setup>
 import { ref, computed, onMounted } from 'vue'
+import LoadingScreen from '@/components/common/LoadingScreen.vue'
+import ImageViewer from '@/components/gallery/ImageViewer.vue'
 
 const viewMode = ref<'grid' | 'masonry'>('grid')
 const currentCategory = ref('all')
 const loading = ref(false)
-const selectedImage = ref<any>(null)
+const selectedImage = ref(null)
 const currentPage = ref(1)
 const pageSize = 12
 const loadedImages = ref<Set<number>>(new Set())
+const isLoading = ref(true)
 
 const categories = [
   { id: 'all', name: '全部' },
@@ -241,15 +230,28 @@ const onImageLoad = (id: number) => {
   }
 }
 
-const openLightbox = (image: any) => {
+// 打开图片查看器
+const openViewer = (image) => {
   selectedImage.value = image
-  document.body.style.overflow = 'hidden'
+  document.body.style.overflow = 'hidden' // 防止背景滚动
 }
 
-const closeLightbox = () => {
+// 关闭图片查看器
+const closeViewer = () => {
   selectedImage.value = null
   document.body.style.overflow = ''
 }
+
+// 在图片点击事件中调用 openViewer
+const handleImageClick = (image) => {
+  openViewer(image)
+}
+
+onMounted(() => {
+  setTimeout(() => {
+    isLoading.value = false
+  }, 1000)
+})
 </script>
 
 <style scoped>
@@ -666,5 +668,16 @@ img.loaded {
   100% {
     stroke-dashoffset: 128;
   }
+}
+
+/* 添加过渡动画 */
+.image-preview-enter-active,
+.image-preview-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.image-preview-enter-from,
+.image-preview-leave-to {
+  opacity: 0;
 }
 </style> 

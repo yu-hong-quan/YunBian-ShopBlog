@@ -33,6 +33,15 @@ const router = createRouter({
       component: () => import('@/views/admin/Login.vue')
     },
     {
+      path: '/admin/dashboard',
+      name: 'Dashboard',
+      component: () => import('@/views/admin/Dashboard.vue'),
+      meta: {
+        requiresAuth: true,
+        title: '管理控制台'
+      }
+    },
+    {
       path: '/admin/editor',
       name: 'Editor',
       component: () => import('@/views/admin/Editor.vue'),
@@ -43,6 +52,15 @@ const router = createRouter({
       name: 'ArticleDetail',
       component: () => import('@/views/ArticleDetail.vue'),
       props: true
+    },
+    {
+      path: '/admin/gallery/edit/:id?',
+      name: 'GalleryEditor',
+      component: () => import('@/views/admin/GalleryEditor.vue'),
+      meta: {
+        requiresAuth: true,
+        title: '编辑图集'
+      }
     }
   ],
   scrollBehavior(to, from, savedPosition) {

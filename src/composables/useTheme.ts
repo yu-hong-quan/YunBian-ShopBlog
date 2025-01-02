@@ -48,4 +48,33 @@ export function useTheme() {
     isDark,
     toggleTheme
   }
+}
+
+export const lightTheme = {
+  // 调整亮色主题的颜色
+  '--color-background': '#f8f9fa',  // 更柔和的背景色
+  '--color-surface': '#ffffff',
+  '--color-primary': '#3b7cff',    // 更深的主色调
+  '--color-secondary': '#2563eb',  // 更深的次要色
+  '--color-text': '#2c3e50',      // 更深的文字颜色
+  '--color-text-secondary': '#64748b', // 更深的次要文字颜色
+  '--color-border': '#e2e8f0',    // 更柔和的边框色
+  '--color-error': '#ef4444',
+  '--color-success': '#22c55e',
+  '--color-warning': '#f59e0b',
+  '--color-info': '#3b82f6',
+  
+  // RGB 值（用于透明度计算）
+  '--color-primary-rgb': '59, 124, 255',
+  '--color-text-rgb': '44, 62, 80',
+  '--color-surface-rgb': '255, 255, 255',
+  
+  // 覆盖层颜色
+  '--color-overlay': 'rgba(0, 0, 0, 0.5)',
+  '--color-surface-overlay': 'rgba(255, 255, 255, 0.9)'
+}
+
+// 暗色主题保持不变
+export const darkTheme = {
+  // ... 暗色主题配置保持不变 ...
 } 

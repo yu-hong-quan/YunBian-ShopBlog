@@ -1,5 +1,6 @@
 <template>
-  <div class="articles-container">
+  <LoadingScreen :is-loading="isLoading" />
+  <div class="articles-container" :class="{ 'content-loaded': !isLoading }">
     <!-- 搜索和筛选区域 -->
     <div class="search-section">
       <div class="search-bar">

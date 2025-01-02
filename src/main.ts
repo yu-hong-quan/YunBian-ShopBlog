@@ -2,7 +2,7 @@ import { createApp } from 'vue';
 import App from './App.vue';
 import router from './router';
 import VueLazyload from 'vue-lazyload';
-import { ObserveVisibility } from 'vue-observe-visibility';
+import { ObserveVisibility } from '@/directives/observe-visibility';
 import mavonEditor from 'mavon-editor'
 import '@/styles/global.css'
 import 'mavon-editor/dist/css/index.css'

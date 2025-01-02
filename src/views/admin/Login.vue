@@ -46,7 +46,7 @@ const handleLogin = async () => {
   try {
     const success = login(adminToken.value)
     if (success) {
-      router.push('/admin/editor')
+      handleLoginSuccess()
     } else {
       error.value = '令牌无效'
     }
@@ -55,6 +55,10 @@ const handleLogin = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const handleLoginSuccess = () => {
+  router.push('/admin/dashboard')
 }
 </script>
 

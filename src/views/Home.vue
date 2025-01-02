@@ -17,22 +17,6 @@
 
     <!-- 内容部分 -->
     <section class="content-section" ref="contentSection">
-      <!-- 每个版块添加 section-container 类 -->
-      <div class="section-container" v-observe-visibility="onSkillsVisible">
-        <h2 class="section-title">我的技能</h2>
-        <div class="skills-grid" :class="{ 'fade-in': isSkillsVisible }">
-          <div class="skill-card" v-for="skill in skills" :key="skill.title">
-            <div class="skill-icon-wrapper">
-              <i class="skill-icon">{{ skill.icon }}</i>
-            </div>
-            <h3>{{ skill.title }}</h3>
-            <p>{{ skill.description }}</p>
-            <div class="skill-details">
-              <div class="skill-tag" v-for="tag in skill.tags" :key="tag">{{ tag }}</div>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <div class="section-container" v-observe-visibility="onProjectsVisible">
         <h2 class="section-title">精选项目</h2>
@@ -99,7 +83,8 @@
           </div>
         </div>
       </div>
-
+      <!-- 技能专长部分 -->
+      <SkillsSection />
       <div class="section-container" v-observe-visibility="onContactVisible">
         <h2 class="section-title">联系我</h2>
         <div class="contact-container" :class="{ 'fade-in': isContactVisible }">
@@ -151,6 +136,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import LoadingScreen from '@/components/common/LoadingScreen.vue'
 import { useRouter } from 'vue-router'
+import SkillsSection from '@/components/home/SkillsSection.vue'
 
 const router = useRouter()
 
@@ -539,11 +525,6 @@ onUnmounted(() => {
 .skill-card:hover {
   transform: translateY(-8px);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
-  background: linear-gradient(
-    145deg,
-    rgba(var(--color-primary-rgb), 0.1),
-    rgba(var(--color-surface-rgb), 1)
-  );
 }
 
 .skill-icon-wrapper {
